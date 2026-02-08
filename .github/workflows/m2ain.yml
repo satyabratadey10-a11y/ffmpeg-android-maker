@@ -1,0 +1,58 @@
+name: Compilability check
+on: [ push ]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    # Set a global timeout to save minutes if the build hangs
+    timeout-minutes: 60 
+    
+    strategy:
+      matrix:
+        abi: [ "armeabi-v7a", "arm64-v8a", "x86", "x86_64" ]
+      fail-fast: false
+      
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. SETUP COMPILER CACHE (Major Speedup)
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-${{ matrix.abi }}
+          max-size: 2G
+          create-symlink: true
+
+      # 2. INSTALL TOOLS (Includes Ninja)
+      - name: Setup the environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson nasm ninja-build ccache
+
+      # 3. EXECUTE BUILD WITH OPTIMIZATIONS
+      - name: Executing FFmpeg Build
+        run: |
+          # Point to Android SDK/NDK
+          export ANDROID_SDK_HOME=$ANDROID_HOME
+          export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
+          
+          # Force the use of ccache and Ninja
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          
+          # Run the script with Ninja enabled (if supported by the script)
+          ./ffmpeg-android-maker.sh \
+            -all-free \
+            -all-gpl \
+            -android=24 \
+            -abis=${{ matrix.abi }}
+
+      # 4. UPLOAD THE RESULTING BINARIES
+      - name: Upload Artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-${{ matrix.abi }}
+          # The script usually stores the final .so files in the 'output' folder
+          path: ./output/lib/${{ matrix.abi }}
+          retention-days: 7
