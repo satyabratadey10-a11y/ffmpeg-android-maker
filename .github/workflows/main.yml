@@ -22,12 +22,10 @@ jobs:
           sudo apt update
           sudo apt install meson nasm ninja-build
 
-      - name: Executing FFmpeg Build
-        run: |
-          export ANDROID_SDK_HOME=$ANDROID_HOME
-          export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
-          ./ffmpeg-android-maker.sh -all-free -all-gpl -android=24 -abis=${{ matrix.abi }}
-
+      - name: Build AAR with Gradle
+        run: ./gradlew assembleRelease
+        working-directory: ./android  # Change this to your actual folder name
+        
       - name: Build AAR with Gradle
         run: ./gradlew assembleRelease
 
